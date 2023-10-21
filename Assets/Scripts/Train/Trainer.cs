@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Drawing;
+using System.IO;
 using Assets.Scripts.Grasshopper_IO.Data;
 using Unity.MLAgents;
 using Unity.MLAgents.Actuators;
@@ -10,10 +11,29 @@ using UnityEngine;
 
 public class Trainer : Agent
 {
+    [Header("Debug Settings")]
     [SerializeField]
     private bool _debug = false;
     [SerializeField]
     private bool _log = true;
+
+    [Header("Export Settings")]
+    [SerializeField]
+    private bool _exportResults = false;
+    [SerializeField]
+    [Range(-1.0f, 30.0f)]
+    private float _scoreThreshold = 5.0f;
+
+    [SerializeField]
+    private bool _exportSample = false;
+    [SerializeField]
+    [Range(10, 10000)]
+    private int _sampleRate = 100;
+
+    [SerializeField]
+    private string _exportPath = "Assets/Exported";
+    [SerializeField]
+    private bool _prettyPrint = false;
 
     private int _token;
 
@@ -28,8 +48,13 @@ public class Trainer : Agent
     private Point3d _spawnRotation = new Point3d();
     private int _reset;
 
+    // export
+    private List<string> _exportData;
+
     // debug
-    private int _stepCount = 0;
+    private int _stepCount;
+    private int _episodeCount;
+    private int _episodeCountLastExport;
 
     void Start()
     {
@@ -40,6 +65,9 @@ public class Trainer : Agent
 
     private void Init()
     {
+        _episodeCount = 0;
+        _episodeCountLastExport = 0;
+        _exportData = new List<string>();
         // initialize candidates
         for (int i = 0; i < _candidates.Length; i++)
         {
@@ -88,8 +116,12 @@ public class Trainer : Agent
     public override void OnEpisodeBegin()
     {
         _token = 5;
-
+        
         _stepCount = 0;
+        _episodeCount++;
+        _episodeCountLastExport++;
+
+        _exportData.Clear();
 
         // reset parameters
         _spawnPoint.X = 0;
@@ -111,7 +143,7 @@ public class Trainer : Agent
         // send to grasshopper
         gameObject.GetComponent<Gh_IO>().msgToGh = msg;
 
-        if (_debug || _log) print($"reset, msg: {msg}");
+        if (_debug || _log) print($"RESET [episode: {_episodeCount}, msg: {msg}]");
     }
 
     public override void CollectObservations(VectorSensor sensor)
@@ -233,10 +265,30 @@ public class Trainer : Agent
         _isWaitingForResponse = true;
         // send to grasshopper
         gameObject.GetComponent<Gh_IO>().msgToGh = msg;
-        if (_ghData != null) AddReward(_ghData.score);
+        if (_ghData != null)
+        {
+            
+            AddReward(_ghData.score);
+
+            // append to export data
+            if (_exportResults || _exportSample)
+            {
+                _exportData.Add(dataOut.Serialize());
+            }
+
+            if (_exportResults && _ghData.score > _scoreThreshold)
+            {
+                ExportToFile(dataOut, "Results", _prettyPrint);
+            }
+        }
 
         if (_token <= 0)
         {
+            if (_exportSample && _episodeCountLastExport >= _sampleRate)
+            {
+                ExportToFile(dataOut, "Samples", _prettyPrint);
+                _episodeCountLastExport = 0; // reset
+            }
             EndEpisode();
         }
         _token--;
@@ -245,6 +297,19 @@ public class Trainer : Agent
         {
             print($"ACTION [Step: {_stepCount}, msg: {msg}]");
         }
+    }
+
+    private void ExportToFile(DataOut dataOut, string folder, bool pretty)
+    {
+        string jsonStr = dataOut.ToJsonWithMeta(_exportData, _ghData.observation, pretty);
+        string path = Path.Combine(_exportPath, folder, $"episode_{_episodeCount}_step_{_stepCount}_score_{_ghData.score}.json");
+        // check if directory exists
+        if (!Directory.Exists(Path.Combine(_exportPath, folder)))
+        {
+            Directory.CreateDirectory(Path.Combine(_exportPath, folder));
+        }
+        File.WriteAllText(path, jsonStr);
+        print($"Data logged: {path}, score: {_ghData.score}");
     }
 
     // debug

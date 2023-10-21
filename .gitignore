@@ -6,6 +6,7 @@
 # ml-agents
 /[Vv]env/
 /results/
+Assets/[Ee]xported/
 
 
 # default

@@ -1,11 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
+using UnityEngine;
 
 namespace Assets.Scripts.Grasshopper_IO.Data
 {
+    [System.Serializable]
     public class DataOut
     {
         public float LocX { get; set; }
@@ -38,5 +41,38 @@ namespace Assets.Scripts.Grasshopper_IO.Data
         {
             return $"{LocX},{LocY},{LocZ},{RotX},{RotY},{Reset}";
         }
+
+        public Dictionary<string, object> ToDictionary()
+        {
+            return new Dictionary<string, object>()
+            {
+                {"data", Serialize()}
+            };
+        }
+
+        public string ToJson(bool pretty = false)
+        {
+            return JsonUtility.ToJson(this, pretty);
+        }
+
+        // overload as needed
+        public string ToJsonWithMeta(List<string> serializedDatas, Observation observation, bool pretty = false)
+        {
+            ExportData exportData = new ExportData()
+            {
+                serializedData = serializedDatas.ToArray(),
+                observation = observation
+            };
+            return JsonUtility.ToJson(exportData, pretty);
+        }
+
+        [Serializable]
+        private class ExportData
+        {
+            public string[] serializedData;
+            public Observation observation;
+        }
     }
+
+    
 }

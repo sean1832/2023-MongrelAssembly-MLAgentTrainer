@@ -25,6 +25,20 @@ namespace Assets.Scripts.Grasshopper_IO.Data
         public float maxDisplacement;
         public float[] nearDistance;
         public int[] candidatesMap;
+
+        public Dictionary<string, object> ToDictionary()
+        {
+            return new Dictionary<string, object>()
+            {
+                {"bBox", bBox},
+                {"aggregationDiff", aggregationDiff},
+                {"density", density},
+                {"maxStress", maxStress},
+                {"maxDisplacement", maxDisplacement},
+                {"nearDistance", nearDistance},
+                {"candidatesMap", candidatesMap}
+            };
+        }
     }
     [System.Serializable]
     public class Point3d

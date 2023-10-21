@@ -401,7 +401,13 @@ MonoBehaviour:
   hasUpgradedFromAgentParameters: 1
   MaxStep: 0
   _debug: 0
-  _log: 1
+  _log: 0
+  _exportResults: 1
+  _scoreThreshold: 14
+  _exportSample: 1
+  _sampleRate: 500
+  _exportPath: Assets/Exported
+  _prettyPrint: 1
 --- !u!114 &1261641331
 MonoBehaviour:
   m_ObjectHideFlags: 0
