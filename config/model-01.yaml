@@ -1,0 +1,24 @@
+behaviors:
+  model-01:
+    trainer_type: ppo
+    hyperparameters:
+      batch_size: 64
+      buffer_size: 5000
+      learning_rate: 3.0e-5
+      beta: 5.0e-4
+      epsilon: 0.2
+      lambd: 0.95
+      num_epoch: 5
+      learning_rate_schedule: linear
+    network_settings:
+      normalize: false
+      hidden_units: 128
+      num_layers: 2
+    reward_signals:
+      extrinsic:
+        gamma: 0.99
+        strength: 1.0
+    max_steps: 300000
+    time_horizon: 6 # Number of steps before value estimation bootstraps
+    summary_freq: 1000
+    threaded: true
