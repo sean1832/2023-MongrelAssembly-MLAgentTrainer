@@ -400,6 +400,8 @@ MonoBehaviour:
     maxStep: 0
   hasUpgradedFromAgentParameters: 1
   MaxStep: 0
+  _debug: 0
+  _log: 1
 --- !u!114 &1261641331
 MonoBehaviour:
   m_ObjectHideFlags: 0

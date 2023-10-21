@@ -10,6 +10,11 @@ using UnityEngine;
 
 public class Trainer : Agent
 {
+    [SerializeField]
+    private bool _debug = false;
+    [SerializeField]
+    private bool _log = true;
+
     private int _token;
 
     private string _previousDataFromGh = "";
@@ -105,7 +110,8 @@ public class Trainer : Agent
         string msg = dataOut.Serialize();
         // send to grasshopper
         gameObject.GetComponent<Gh_IO>().msgToGh = msg;
-        print($"reset, msg: {msg}");
+
+        if (_debug || _log) print($"reset, msg: {msg}");
     }
 
     public override void CollectObservations(VectorSensor sensor)
@@ -139,12 +145,21 @@ public class Trainer : Agent
         sensor.AddObservation(obs.candidatesMap[3]);
         sensor.AddObservation(obs.candidatesMap[4]);
         sensor.AddObservation(obs.candidatesMap[5]);
+
+        if (_debug)
+        {
+            // debug
+            string msg = $"bbox({obs.bBox.X},{obs.bBox.Y},{obs.bBox.Z}), \n" +
+                         $"near({obs.nearDistance[0]},{obs.nearDistance[1]},{obs.nearDistance[2]},{obs.nearDistance[3]},{obs.nearDistance[4]},{obs.nearDistance[5]}), \n" +
+                         $"map({obs.candidatesMap[0]},{obs.candidatesMap[1]},{obs.candidatesMap[2]},{obs.candidatesMap[3]},{obs.candidatesMap[4]},{obs.candidatesMap[5]}), \n" +
+                         $"agg({obs.aggregationDiff}),density({obs.density}),stress({obs.maxStress}),displace({obs.maxDisplacement})";
+
+            print($"OBSERVE [step: {_stepCount}, msg: {msg}]");
+        }
     }
 
     public override void OnActionReceived(ActionBuffers actions)
     {
-        _stepCount++;
-        print($"Step: {_stepCount}");
         if (_isWaitingForResponse) return;
         _reset = 0;
         // remap rotation to 0-360
@@ -224,9 +239,12 @@ public class Trainer : Agent
         {
             EndEpisode();
         }
-        _token -= 1;
-        //_stepCount += 1;
-        //print($"Step: {_stepCount}, msg: {msg}");
+        _token--;
+        _stepCount++;
+        if (_debug || _log)
+        {
+            print($"ACTION [Step: {_stepCount}, msg: {msg}]");
+        }
     }
 
     // debug
