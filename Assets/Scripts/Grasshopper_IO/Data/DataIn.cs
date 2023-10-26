@@ -23,6 +23,7 @@ namespace Assets.Scripts.Grasshopper_IO.Data
         public float density;
         public float maxStress;
         public float maxDisplacement;
+        public bool isLinear;
         public float[] nearDistance;
         public int[] candidatesMap;
 
@@ -35,6 +36,7 @@ namespace Assets.Scripts.Grasshopper_IO.Data
                 {"density", density},
                 {"maxStress", maxStress},
                 {"maxDisplacement", maxDisplacement},
+                {"isLinear", isLinear},
                 {"nearDistance", nearDistance},
                 {"candidatesMap", candidatesMap}
             };

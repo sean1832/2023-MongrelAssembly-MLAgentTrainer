@@ -18,7 +18,7 @@ behaviors:
       extrinsic:
         gamma: 0.99
         strength: 1.0
-    max_steps: 100000
+    max_steps: 500000
     time_horizon: 5 # Number of steps before value estimation bootstraps
     summary_freq: 1000
     threaded: true

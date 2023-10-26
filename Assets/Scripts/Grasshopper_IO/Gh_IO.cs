@@ -61,6 +61,8 @@ public class Gh_IO : MonoBehaviour
             //print($"Receiving message: {lastReceivedMessage}");
             msgFromGh = lastReceivedMessage;
             _messageChanged = false;
+
+            //gameObject.GetComponent<Trainer>().OnMessageReceivedFromGh();
         }
     }
 

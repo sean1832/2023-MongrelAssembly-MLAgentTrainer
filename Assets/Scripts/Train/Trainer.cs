@@ -40,7 +40,7 @@ public class Trainer : Agent
     private string _previousDataFromGh = "";
     private string _lastDataFromGh = "";
     private bool _dataFromGhIsChanged = false;
-    private bool _isWaitingForResponse = false;
+    private bool _isGhDataReceived = false;
     private DataIn _ghData;
 
     private Point3d[] _candidates = new Point3d[6];
@@ -104,7 +104,6 @@ public class Trainer : Agent
                 _ghData = JsonUtility.FromJson<DataIn>(dataFromGh);
                 Academy.Instance.EnvironmentStep();
                 _dataFromGhIsChanged = false;
-                _isWaitingForResponse = false; // no longer waiting after processing data
 
                 RequestDecision(); // Manually request a decision (and thus a step, required to disable decision requester)
             }
@@ -161,6 +160,7 @@ public class Trainer : Agent
         sensor.AddObservation(obs.density);
         sensor.AddObservation(obs.maxStress);
         sensor.AddObservation(obs.maxDisplacement);
+        sensor.AddObservation(obs.isLinear);
 
         // near distance (6)
         sensor.AddObservation(obs.nearDistance[0]);
@@ -192,14 +192,15 @@ public class Trainer : Agent
 
     public override void OnActionReceived(ActionBuffers actions)
     {
-        if (_isWaitingForResponse) return;
         _reset = 0;
         // remap rotation to 0-360
         _spawnRotation.X = actions.ContinuousActions[0] * 180;
         _spawnRotation.Y = actions.ContinuousActions[1] * 180;
+        
+        
         if (_ghData != null)
         {
-            // set candidates
+            // set candidates (note: this _ghData is from last step)
             for (int i = 0; i < _candidates.Length; i++)
             {
                 _candidates[i].X = _ghData.candidates[i].X;
@@ -217,8 +218,78 @@ public class Trainer : Agent
                 t.Z = 0;
             }
         }
-        
 
+        // get candidates
+        SetSpawnPoint(actions);
+        
+        DataOut dataOut = new DataOut(_spawnPoint, _spawnRotation, _reset);
+        string msg = dataOut.Serialize();
+
+        // send to grasshopper
+        gameObject.GetComponent<Gh_IO>().msgToGh = msg;
+
+
+        //// todo: ideally , we should wait for the response from grasshopper
+        //StartCoroutine(WaitForGhResponse(msg));
+        ProceedOnReceiveResponseFromGh(msg, _ghData);
+    }
+
+    //private IEnumerator WaitForGhResponse(string msg)
+    //{
+    //    // Wait until the flag is set
+    //    yield return new WaitUntil(() => _isGhDataReceived);
+
+    //    // Proceed with your action logic
+    //    ProceedOnReceiveResponseFromGh(msg, _ghData);
+    //}
+
+    //public void OnMessageReceivedFromGh()
+    //{
+    //    string dataFromGh = gameObject.GetComponent<Gh_IO>().msgFromGh;
+
+    //    // Parse the message and update _ghData
+    //    _ghData = JsonUtility.FromJson<DataIn>(dataFromGh);
+
+    //    // Set the flag to indicate that data has been received
+    //    _isGhDataReceived = true;
+    //}
+
+    private void ProceedOnReceiveResponseFromGh(string msg, DataIn ghData)
+    {
+        _isGhDataReceived = false;
+        AddReward(ghData.score);
+
+        // append to export data
+        if (_exportResults || _exportSample)
+        {
+            _exportData.Add(msg);
+        }
+
+        if (_exportResults && ghData.score > _scoreThreshold)
+        {
+            ExportToFile( "Results",_exportData, _prettyPrint);
+        }
+
+        if (_token <= 0)
+        {
+            if (_exportSample && _episodeCountLastExport >= _sampleRate)
+            {
+                ExportToFile("Samples",_exportData, _prettyPrint);
+                _episodeCountLastExport = 0; // reset
+            }
+            EndEpisode();
+
+        }
+        _token--;
+        _stepCount++;
+        if (_debug || _log)
+        {
+            print($"ACTION [Step: {_stepCount}, msg: {msg}]");
+        }
+    }
+
+    private void SetSpawnPoint(ActionBuffers actions)
+    {
         // get candidates
         switch (actions.DiscreteActions[0])
         {
@@ -258,50 +329,11 @@ public class Trainer : Agent
                 _spawnPoint.Z = 0;
                 break;
         }
-        
-        DataOut dataOut = new DataOut(_spawnPoint, _spawnRotation, _reset);
-        string msg = dataOut.Serialize();
-
-        _isWaitingForResponse = true;
-        // send to grasshopper
-        gameObject.GetComponent<Gh_IO>().msgToGh = msg;
-        if (_ghData != null)
-        {
-            
-            AddReward(_ghData.score);
-
-            // append to export data
-            if (_exportResults || _exportSample)
-            {
-                _exportData.Add(dataOut.Serialize());
-            }
-
-            if (_exportResults && _ghData.score > _scoreThreshold)
-            {
-                ExportToFile(dataOut, "Results", _prettyPrint);
-            }
-        }
-
-        if (_token <= 0)
-        {
-            if (_exportSample && _episodeCountLastExport >= _sampleRate)
-            {
-                ExportToFile(dataOut, "Samples", _prettyPrint);
-                _episodeCountLastExport = 0; // reset
-            }
-            EndEpisode();
-        }
-        _token--;
-        _stepCount++;
-        if (_debug || _log)
-        {
-            print($"ACTION [Step: {_stepCount}, msg: {msg}]");
-        }
     }
 
-    private void ExportToFile(DataOut dataOut, string folder, bool pretty)
+    private void ExportToFile(string folder, List<string> data, bool pretty)
     {
-        string jsonStr = dataOut.ToJsonWithMeta(_exportData, _ghData.observation, pretty);
+        string jsonStr = GetJsonWithMeta(data, _ghData, pretty);
         string path = Path.Combine(_exportPath, folder, $"episode_{_episodeCount}_step_{_stepCount}_score_{_ghData.score}.json");
         // check if directory exists
         if (!Directory.Exists(Path.Combine(_exportPath, folder)))
@@ -311,6 +343,24 @@ public class Trainer : Agent
         File.WriteAllText(path, jsonStr);
         print($"Data logged: {path}, score: {_ghData.score}");
     }
+
+    private string GetJsonWithMeta(List<string> serializedDatas, DataIn dataIn, bool pretty = false)
+    {
+        ExportData exportData = new ExportData()
+        {
+            serializedData = serializedDatas.ToArray(),
+            dataIn = dataIn
+        };
+        return JsonUtility.ToJson(exportData, pretty);
+    }
+
+    [Serializable]
+    private class ExportData
+    {
+        public string[] serializedData;
+        public DataIn dataIn;
+    }
+
 
     // debug
     public override void Heuristic(in ActionBuffers actionsOut)

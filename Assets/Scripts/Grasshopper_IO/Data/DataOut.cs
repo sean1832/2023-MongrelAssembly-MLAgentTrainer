@@ -56,22 +56,7 @@ namespace Assets.Scripts.Grasshopper_IO.Data
         }
 
         // overload as needed
-        public string ToJsonWithMeta(List<string> serializedDatas, Observation observation, bool pretty = false)
-        {
-            ExportData exportData = new ExportData()
-            {
-                serializedData = serializedDatas.ToArray(),
-                observation = observation
-            };
-            return JsonUtility.ToJson(exportData, pretty);
-        }
-
-        [Serializable]
-        private class ExportData
-        {
-            public string[] serializedData;
-            public Observation observation;
-        }
+        
     }
 
     
